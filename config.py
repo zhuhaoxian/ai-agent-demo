@@ -4,7 +4,7 @@
 """
 
 # 星火 API 配置
-SPARK_API_KEY = "Bearer ZcYhmLHcVoGROVMKCuAo:YeYTZYojWRblNcUrhoGa"
+SPARK_API_KEY = "Bearer xxx"
 SPARK_API_URL = "https://spark-api-open.xf-yun.com/v2/chat/completions"
 SPARK_MODEL = "x1"
 
