@@ -200,13 +200,40 @@ FUNCTION_TOOLS = [
     }
 ]
 
-# Web Search 工具（用于网络搜索）
+# Web Search 工具（星火模型专属格式）
 WEB_SEARCH_TOOLS = [
     {
         "type": "web_search",
         "web_search": {
             "enable": True,
             "search_mode": "normal"  # 可选 "deep" 或 "normal"，deep 模式搜索内容更丰富但 token 使用量更高
+        }
+    }
+]
+
+# 通用的 Web Search Function 工具（适用于 OpenAI 等标准模型）
+# 如果使用非星火模型，可以用这个替代上面的 WEB_SEARCH_TOOLS
+GENERIC_WEB_SEARCH_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "web_search",
+            "description": "在互联网上搜索信息，获取任何信息，如最新的新闻、天气、时间等实时信息。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "搜索关键词或问题"
+                    },
+                    "search_mode": {
+                        "type": "string",
+                        "enum": ["normal", "deep"],
+                        "description": "搜索模式：normal 为普通搜索，deep 为深度搜索（可选，默认 normal）"
+                    }
+                },
+                "required": ["query"]
+            }
         }
     }
 ]

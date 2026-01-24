@@ -1,23 +1,24 @@
 """
-星火 AI 对话主程序
+AI 对话主程序
 支持 Function Call 和 Web Search 功能
+兼容 OpenAI 格式的 API
 """
 import json
 from typing import List, Dict, Any
 
-from spark_client import SparkClient
+from ai_client import AIClient
 from chat_manager import ChatManager
 from business_api import AVAILABLE_FUNCTIONS
 from tools_config import WEB_SEARCH_KEYWORDS
-from config import SPARK_API_KEY, SPARK_API_URL, MAX_TOOL_ITERATIONS
+from config import AI_API_KEY, AI_BASE_URL, MAX_TOOL_ITERATIONS
 
 
 class ChatBot:
     """聊天机器人"""
     
-    def __init__(self, api_key: str, api_url: str):
+    def __init__(self, api_key: str, base_url: str):
         """初始化聊天机器人"""
-        self.client = SparkClient(api_key, api_url)
+        self.client = AIClient(api_key, base_url)
         self.chat_manager = ChatManager()
     
     def should_use_web_search(self, user_input: str) -> bool:
@@ -67,7 +68,7 @@ class ChatBot:
                 self._execute_tool_call(tool_call)
             
             # 再次调用模型
-            print("\n星火:", end="")
+            print("\nAI:", end="")
             answer, tool_calls = self.client.chat(
                 self.chat_manager.get_history(),
                 use_web_search=use_web_search
@@ -97,6 +98,10 @@ class ChatBot:
         try:
             function_to_call = AVAILABLE_FUNCTIONS[function_name]
             function_response = function_to_call(**function_args)
+            
+            # 显示函数返回内容
+            print("[返回内容]")
+            print(json.dumps(function_response, ensure_ascii=False, indent=2))
             
             # 将函数执行结果添加到对话历史
             self.chat_manager.add_message(
@@ -133,7 +138,7 @@ class ChatBot:
         self.chat_manager.add_message("user", user_input)
         
         # 开始输出模型内容
-        print("星火:", end="")
+        print("AI:", end="")
         answer, tool_calls = self.client.chat(
             self.chat_manager.get_history(),
             use_web_search=use_web_search
@@ -152,12 +157,12 @@ class ChatBot:
 def main():
     """主程序入口"""
     print("=" * 60)
-    print("星火 AI 对话系统")
+    print("AI 对话系统")
     print("支持 Function Call 和 Web Search 功能")
     print("输入空行退出")
     print("=" * 60)
     
-    bot = ChatBot(SPARK_API_KEY, SPARK_API_URL)
+    bot = ChatBot(AI_API_KEY, AI_BASE_URL)
     
     while True:
         try:
