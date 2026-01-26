@@ -4,22 +4,22 @@
 """
 
 # AI 模型 API 配置
-# 支持任何兼容 OpenAI 格式的 API
-# 例如：
-# - OpenAI: base_url="https://api.openai.com/v1", model="gpt-4"
-# - 星火: base_url="https://spark-api-open.xf-yun.com/v2", model="x1"
-# - ChatAnywhere: base_url="https://api.chatanywhere.tech/v1", model="gpt-3.5-turbo"
-
-AI_API_KEY = "your-api-key-here"  # 替换为你的 API Key
-AI_BASE_URL = "https://api.chatanywhere.tech/v1"  # 替换为你的 API 地址
+# 注意：使用 AgentGuard 代理后，这些配置将在 AgentGuard 后台配置，而不是在这里
+# AgentGuard 会自动管理 LLM API 的密钥和调用
+AI_API_KEY = "your-api-key-here"  # 如果不使用 AgentGuard，填入你的 API Key
+AI_BASE_URL = "https://api.chatanywhere.tech/v1"  # 如果不使用 AgentGuard，填入你的 API 地址
 AI_MODEL = "gpt-3.5-turbo"  # 替换为你要使用的模型
 
 # 业务系统 API 配置
 BUSINESS_API_BASE = "http://localhost:9090"
 BUSINESS_API_TIMEOUT = 10
 
-# AgentGuard 代理配置
-AGENTGUARD_PROXY_URL = "http://localhost:8080/proxy/v1/request"
+# AgentGuard 代理配置（新版双层代理架构）
+# LLM 代理端点：用于大模型 API 调用
+AGENTGUARD_LLM_PROXY_URL = "http://localhost:8080/proxy/v1"
+# 业务 API 代理端点：用于业务系统 API 调用
+AGENTGUARD_BUSINESS_PROXY_URL = "http://localhost:8080/proxy/v1/api"
+# AgentGuard API Key
 AGENTGUARD_API_KEY = "ag_your_agentguard_key_here"  # 替换为你的 AgentGuard API Key
 
 # 对话配置

@@ -7,9 +7,9 @@ import requests
 from typing import Optional, Dict, Any
 
 from config import (
-    BUSINESS_API_BASE, 
+    BUSINESS_API_BASE,
     BUSINESS_API_TIMEOUT,
-    AGENTGUARD_PROXY_URL,
+    AGENTGUARD_BUSINESS_PROXY_URL,
     AGENTGUARD_API_KEY
 )
 
@@ -26,52 +26,51 @@ def _call_via_agentguard(
     headers: Optional[Dict[str, str]] = None
 ) -> Dict[str, Any]:
     """
-    通过 AgentGuard 代理服务调用目标 API
-    
+    通过 AgentGuard 代理服务调用目标 API（新版业务API代理端点）
+
     Args:
         target_url: 目标 API 的完整 URL
         method: HTTP 方法（GET、POST、PUT、DELETE 等）
         body: 请求体数据
         headers: 请求头
-        
+
     Returns:
         AgentGuard 代理响应或错误信息
     """
     try:
-        # 构造 AgentGuard 代理请求
+        # 构造 AgentGuard 代理请求（新版格式）
         proxy_request = {
             "apiKey": AGENTGUARD_API_KEY,
             "targetUrl": target_url,
             "method": method,
-            "headers": headers or {"Content-Type": "application/json"},
-            "metadata": {}
+            "headers": headers or {"Content-Type": "application/json"}
         }
-        
+
         # 只有在有请求体时才添加 body 字段
         if body is not None:
             proxy_request["body"] = body
-        
-        # 发送请求到 AgentGuard 代理服务
+
+        # 发送请求到 AgentGuard 业务API代理服务（新版端点）
         response = requests.post(
-            AGENTGUARD_PROXY_URL,
+            AGENTGUARD_BUSINESS_PROXY_URL,
             json=proxy_request,
             timeout=BUSINESS_API_TIMEOUT
         )
         response.raise_for_status()
-        
+
         # 解析 AgentGuard 响应
         proxy_response = response.json()
-        
+
         # 如果 AgentGuard 返回了目标 API 的响应数据，提取出来
         if proxy_response.get("code") == 200 and "data" in proxy_response:
             data = proxy_response["data"]
             # 如果状态是成功，返回实际的响应数据
             if data.get("status") == "SUCCESS" and "response" in data:
                 return data["response"]
-        
+
         # 否则返回完整的代理响应
         return proxy_response
-            
+
     except requests.exceptions.RequestException as e:
         return _handle_api_error(e)
 

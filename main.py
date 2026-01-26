@@ -10,7 +10,7 @@ from ai_client import AIClient
 from chat_manager import ChatManager
 from business_api import AVAILABLE_FUNCTIONS
 from tools_config import WEB_SEARCH_KEYWORDS
-from config import AI_API_KEY, AI_BASE_URL, MAX_TOOL_ITERATIONS
+from config import AGENTGUARD_API_KEY, AGENTGUARD_LLM_PROXY_URL, MAX_TOOL_ITERATIONS
 
 
 class ChatBot:
@@ -156,13 +156,14 @@ class ChatBot:
 
 def main():
     """主程序入口"""
-    print("=" * 60)
-    print("AI 对话系统")
+    print("==" * 60)
+    print("AI 对话系统（通过 AgentGuard 代理）")
     print("支持 Function Call 和 Web Search 功能")
     print("输入空行退出")
     print("=" * 60)
-    
-    bot = ChatBot(AI_API_KEY, AI_BASE_URL)
+
+    # 使用 AgentGuard 代理来调用 LLM
+    bot = ChatBot(AGENTGUARD_API_KEY, AGENTGUARD_LLM_PROXY_URL)
     
     while True:
         try:
