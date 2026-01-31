@@ -10,15 +10,15 @@ from ai_client import AIClient
 from chat_manager import ChatManager
 from business_api import AVAILABLE_FUNCTIONS
 from tools_config import WEB_SEARCH_KEYWORDS
-from config import AGENTGUARD_API_KEY, AGENTGUARD_LLM_PROXY_URL, MAX_TOOL_ITERATIONS
+from config import AGENTGUARD_API_KEY, AGENTGUARD_LLM_PROXY_URL, AGENTGUARD_API_URL, MAX_TOOL_ITERATIONS
 
 
 class ChatBot:
     """聊天机器人"""
-    
-    def __init__(self, api_key: str, base_url: str):
+
+    def __init__(self, api_key: str, base_url: str, agentguard_api_url: str = None):
         """初始化聊天机器人"""
-        self.client = AIClient(api_key, base_url)
+        self.client = AIClient(api_key, base_url, agentguard_api_url)
         self.chat_manager = ChatManager()
     
     def should_use_web_search(self, user_input: str) -> bool:
@@ -133,10 +133,10 @@ class ChatBot:
         use_web_search = self.should_use_web_search(user_input)
         if use_web_search:
             print("[使用网络搜索模式]")
-        
+
         # 添加用户消息到历史
         self.chat_manager.add_message("user", user_input)
-        
+
         # 开始输出模型内容
         print("AI:", end="")
         answer, tool_calls = self.client.chat(
@@ -144,11 +144,74 @@ class ChatBot:
             use_web_search=use_web_search
         )
         print()  # 换行
-        
+
+        # 检查是否是 LLM 审批拦截的特殊情况
+        if tool_calls and len(tool_calls) == 1 and tool_calls[0].get("_llm_approval_interception"):
+            # 这是 LLM 请求被拦截的情况
+            approval_info = tool_calls[0]
+
+            # 1. 添加审批拦截消息到历史（作为 assistant 消息）
+            self.chat_manager.add_message("assistant", approval_info["interception_message"])
+            print(f"[已将审批拦截消息添加到对话历史]")
+
+            # 2. 再次调用 AI，让 AI 根据系统提示引导用户提供理由
+            print("\nAI:", end="")
+            answer, tool_calls = self.client.chat(
+                self.chat_manager.get_history(),
+                use_web_search=use_web_search
+            )
+            print()  # 换行
+
+            # 3. 处理 AI 的响应（可能包含工具调用）
+            if tool_calls:
+                answer = self.process_tool_calls(tool_calls, use_web_search)
+
+            # 4. 添加最终回复到历史
+            if answer:
+                self.chat_manager.add_message("assistant", answer)
+
+            return
+
+        # 检查是否是旧的审批处理的特殊情况（保留兼容性）
+        if tool_calls and len(tool_calls) == 1 and tool_calls[0].get("_approval_handled"):
+            # 这是审批流程的特殊处理
+            approval_info = tool_calls[0]
+
+            # 1. 添加审批拦截消息到历史（作为 assistant 消息）
+            self.chat_manager.add_message("assistant", approval_info["approval_interception_message"])
+            print(f"[已将审批拦截消息添加到对话历史]")
+
+            # 2. 构造审批工具调用记录
+            approval_tool_call = {
+                "id": f"call_approval_{approval_info['approval_id']}",
+                "type": "function",
+                "function": {
+                    "name": "check_agentguard_approval_status",
+                    "arguments": json.dumps({"approval_id": approval_info["approval_id"]})
+                }
+            }
+
+            # 3. 添加工具调用消息到历史
+            self.chat_manager.add_message("assistant", "", tool_calls=[approval_tool_call])
+            print(f"[已将审批工具调用添加到对话历史]")
+
+            # 4. 添加审批结果到历史（作为 tool 消息）
+            self.chat_manager.add_message(
+                "tool",
+                approval_info["approval_result"],
+                tool_call_id=approval_tool_call["id"]
+            )
+            print(f"[已将审批结果添加到对话历史]")
+
+            # 5. 最终回复就是审批结果，直接显示
+            answer = approval_info["approval_result"]
+            # 不需要再添加到历史，因为已经作为 tool 消息添加了
+            return
+
         # 处理工具调用
         if tool_calls:
             answer = self.process_tool_calls(tool_calls, use_web_search)
-        
+
         # 添加最终回复到历史
         if answer:
             self.chat_manager.add_message("assistant", answer)
@@ -163,7 +226,7 @@ def main():
     print("=" * 60)
 
     # 使用 AgentGuard 代理来调用 LLM
-    bot = ChatBot(AGENTGUARD_API_KEY, AGENTGUARD_LLM_PROXY_URL)
+    bot = ChatBot(AGENTGUARD_API_KEY, AGENTGUARD_LLM_PROXY_URL, AGENTGUARD_API_URL)
     
     while True:
         try:

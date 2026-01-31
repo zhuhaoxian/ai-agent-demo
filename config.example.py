@@ -19,6 +19,8 @@ BUSINESS_API_TIMEOUT = 10
 AGENTGUARD_LLM_PROXY_URL = "http://localhost:8080/proxy/v1"
 # 业务 API 代理端点：用于业务系统 API 调用
 AGENTGUARD_BUSINESS_PROXY_URL = "http://localhost:8080/proxy/v1/api"
+# AgentGuard 管理 API 地址：用于查询审批状态
+AGENTGUARD_API_URL = "http://localhost:8080"
 # AgentGuard API Key
 AGENTGUARD_API_KEY = "ag_your_agentguard_key_here"  # 替换为你的 AgentGuard API Key
 
