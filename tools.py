@@ -3,7 +3,7 @@
 定义 Agent 可以调用的业务函数和工具
 """
 from typing import Dict, Any
-from agentguard import AgentGuardHTTP
+from agentguard_zhx import AgentGuardHTTP
 from config import AGENTGUARD_URL, AGENTGUARD_API_KEY
 
 # 初始化 AgentGuard HTTP 客户端（用于业务 API 调用）

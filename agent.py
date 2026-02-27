@@ -4,7 +4,7 @@ AI Agent 实现
 """
 import json
 from typing import List, Dict, Any
-from agentguard import AgentGuardOpenAI
+from agentguard_zhx import AgentGuardOpenAI
 
 from config import AGENTGUARD_URL, AGENTGUARD_API_KEY, AI_MODEL
 from tools import BUSINESS_TOOLS, BUSINESS_FUNCTIONS
@@ -62,20 +62,30 @@ class SimpleAgent:
 
     def _chat_non_stream(self) -> str:
         """非流式对话处理"""
-        # 调用 LLM
-        response = self.client.chat.completions.create(
-            model=AI_MODEL,
-            messages=self.messages,
-            tools=self.tools,
-            stream=False
-        )
+        max_iterations = 10  # 防止无限循环
+        iteration = 0
 
-        message = response.choices[0].message
-        assistant_message = message.content or ""
+        while iteration < max_iterations:
+            iteration += 1
 
-        # 处理工具调用
-        if message.tool_calls:
-            # 添加 assistant 消息
+            # 调用 LLM
+            response = self.client.chat.completions.create(
+                model=AI_MODEL,
+                messages=self.messages,
+                tools=self.tools,
+                stream=False
+            )
+
+            message = response.choices[0].message
+            assistant_message = message.content or ""
+
+            # 如果没有工具调用，结束循环
+            if not message.tool_calls:
+                # 添加 assistant 消息
+                self.messages.append({"role": "assistant", "content": assistant_message})
+                return assistant_message
+
+            # 有工具调用，添加 assistant 消息
             self.messages.append({
                 "role": "assistant",
                 "content": assistant_message,
@@ -112,77 +122,78 @@ class SimpleAgent:
                     "content": json.dumps(result, ensure_ascii=False)
                 })
 
-            # 再次调用 LLM 获取最终回复
-            response = self.client.chat.completions.create(
-                model=AI_MODEL,
-                messages=self.messages,
-                tools=self.tools,
-                stream=False
-            )
+            # 继续下一轮循环，让 LLM 处理工具结果
 
-            assistant_message = response.choices[0].message.content
-
-        # 添加 assistant 消息
-        self.messages.append({"role": "assistant", "content": assistant_message})
-
-        return assistant_message
+        # 达到最大迭代次数
+        print("\n[警告] 达到最大工具调用次数限制")
+        return ""
 
     def _chat_stream(self) -> str:
         """流式对话处理"""
-        # 调用 LLM
-        stream = self.client.chat.completions.create(
-            model=AI_MODEL,
-            messages=self.messages,
-            tools=self.tools,
-            stream=True
-        )
+        max_iterations = 10  # 防止无限循环
+        iteration = 0
 
-        # 累积响应内容
-        assistant_message = ""
-        # 累积 tool_calls
-        tool_calls_accumulator = {}  
+        while iteration < max_iterations:
+            iteration += 1
 
-        print("\nAgent: ", end="", flush=True)
+            # 调用 LLM
+            stream = self.client.chat.completions.create(
+                model=AI_MODEL,
+                messages=self.messages,
+                tools=self.tools,
+                stream=True
+            )
 
-        # 处理流式响应
-        for chunk in stream:
-            if not chunk.choices:
-                continue
-
-            delta = chunk.choices[0].delta
-
-            # 累积内容
-            if delta.content:
-                content = delta.content
-                assistant_message += content
-                print(content, end="", flush=True)
-
+            # 累积响应内容
+            assistant_message = ""
             # 累积 tool_calls
-            if delta.tool_calls:
-                for tc_delta in delta.tool_calls:
-                    idx = tc_delta.index
-                    if idx not in tool_calls_accumulator:
-                        tool_calls_accumulator[idx] = {
-                            "id": tc_delta.id or "",
-                            "type": "function",
-                            "function": {
-                                "name": tc_delta.function.name or "",
-                                "arguments": ""
+            tool_calls_accumulator = {}
+
+            if iteration == 1:
+                print("\nAgent: ", end="", flush=True)
+
+            # 处理流式响应
+            for chunk in stream:
+                if not chunk.choices:
+                    continue
+
+                delta = chunk.choices[0].delta
+
+                # 累积内容
+                if delta.content:
+                    content = delta.content
+                    assistant_message += content
+                    print(content, end="", flush=True)
+
+                # 累积 tool_calls
+                if delta.tool_calls:
+                    for tc_delta in delta.tool_calls:
+                        idx = tc_delta.index
+                        if idx not in tool_calls_accumulator:
+                            tool_calls_accumulator[idx] = {
+                                "id": tc_delta.id or "",
+                                "type": "function",
+                                "function": {
+                                    "name": tc_delta.function.name or "",
+                                    "arguments": ""
+                                }
                             }
-                        }
 
-                    # 累积函数参数
-                    if tc_delta.function.arguments:
-                        tool_calls_accumulator[idx]["function"]["arguments"] += tc_delta.function.arguments
+                        # 累积函数参数
+                        if tc_delta.function.arguments:
+                            tool_calls_accumulator[idx]["function"]["arguments"] += tc_delta.function.arguments
 
-        print()
+            # 转换累积的 tool_calls 为列表
+            tool_calls = [tool_calls_accumulator[i] for i in sorted(tool_calls_accumulator.keys())] if tool_calls_accumulator else None
 
-        # 转换累积的 tool_calls 为列表
-        tool_calls = [tool_calls_accumulator[i] for i in sorted(tool_calls_accumulator.keys())] if tool_calls_accumulator else None
+            # 如果没有工具调用，结束循环
+            if not tool_calls:
+                print()
+                # 添加 assistant 消息
+                self.messages.append({"role": "assistant", "content": assistant_message})
+                return assistant_message
 
-        # 处理工具调用
-        if tool_calls:
-            # 添加 assistant 消息
+            # 有工具调用，添加 assistant 消息
             self.messages.append({
                 "role": "assistant",
                 "content": assistant_message,
@@ -194,7 +205,7 @@ class SimpleAgent:
                 function_name = tool_call["function"]["name"]
                 function_args = json.loads(tool_call["function"]["arguments"])
 
-                print(f"\n[工具调用] {function_name}({function_args})")
+                print(f"\n\n[工具调用] {function_name}({function_args})")
 
                 # 执行函数
                 if function_name in self.functions:
@@ -209,30 +220,9 @@ class SimpleAgent:
                     "content": json.dumps(result, ensure_ascii=False)
                 })
 
-            # 再次调用 LLM 获取最终回复
-            stream = self.client.chat.completions.create(
-                model=AI_MODEL,
-                messages=self.messages,
-                tools=self.tools,
-                stream=True
-            )
-
-            assistant_message = ""
+            # 继续下一轮循环，让 LLM 处理工具结果
             print("\nAgent: ", end="", flush=True)
 
-            for chunk in stream:
-                if not chunk.choices:
-                    continue
-
-                delta = chunk.choices[0].delta
-                if delta.content:
-                    content = delta.content
-                    assistant_message += content
-                    print(content, end="", flush=True)
-
-            print()
-
-        # 添加 assistant 消息
-        self.messages.append({"role": "assistant", "content": assistant_message})
-
-        return assistant_message
+        # 达到最大迭代次数
+        print("\n[警告] 达到最大工具调用次数限制")
+        return ""
